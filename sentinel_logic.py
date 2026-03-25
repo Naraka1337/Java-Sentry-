@@ -53,4 +53,4 @@ if __name__ == "__main__":
     init_db()
     check_java_vuln()
     print("[*] Sniffing Phase: Waiting for Attack on port 1099...")
-    sniff(filter=f"ip dst {TARGET_IP} and tcp port 1099", prn=detect_attack, store=0)
+    sniff(filter="tcp port 1099", prn=detect_attack, store=0, iface="ens34")
