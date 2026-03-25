@@ -2,50 +2,55 @@ import socket
 import csv
 import time
 from scapy.all import *
+import os
 
-TARGET_IP = "192.168.56.20" # The target Metasploitable IP
+TARGET_IP = "192.168.56.20"
 CSV_DB = "standalone_siem.csv"
 
-# 1. Vulnerability Check before attack
+def init_db():
+    # Initialize the log file with headers if it doesn't exist
+    with open(CSV_DB, 'w', newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Timestamp", "Source IP", "Status", "Message"])
+
 def check_java_vuln():
-    print(f"🔍 Scanning {TARGET_IP} for Java RMI Vulnerability...")
+    print(f"[*] Scanning Phase: Checking {TARGET_IP}:1099 for Java RMI Vulnerability...")
     try:
-        # Try to open port 1099 and read the first two words
-        s = socket.socket()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(2)
         s.connect((TARGET_IP, 1099))
         banner = s.recv(1024)
         s.close()
-        # If the port is open and responds, this is a danger sign in Metasploitable
-        return True, "Java RMI Registry is OPEN (Vulnerable Version Detected)"
-    except:
-        return False, "Safe"
-
-# 2. Live Network IDS monitoring
-def detect_attack(packet):
-    if packet.haslayer(TCP) and packet.haslayer(Raw):
-        payload = str(packet[Raw].load)
-        # Metasploit fingerprint in Java RMI attacks
-        if "java" in payload.lower() or "rmi" in payload.lower():
-            timestamp = time.strftime("%H:%M:%S")
-            print(f"🚨 [ALERT] Exploit Payload Detected from {packet[IP].src}!")
-            with open(CSV_DB, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow([timestamp, packet[IP].src, "CRITICAL", "Java RCE Exploit Detected"])
-
-if __name__ == "__main__":
-    # Initialize the log file
-    with open(CSV_DB, 'w', newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Time", "Source", "Level", "Details"])
-
-    # Step 1: Scan
-    is_vuln, msg = check_java_vuln()
-    if is_vuln:
+        
+        # If open and responds, log the risk
+        msg = "VULNERABILITY DETECTED (CVE-2013-4040 / Java RMI)"
+        print(f"[!] {msg} - Status: RISK")
+        
         with open(CSV_DB, "a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([time.strftime("%H:%M:%S"), "Scanner", "RISK", msg])
+            writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "Scanner (Local)", "RISK", msg])
+        return True
+    except Exception as e:
+        print(f"[-] Target is secured or offline. Status: SAFE")
+        with open(CSV_DB, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "Scanner (Local)", "SAFE", "No Vulnerability Detected"])
+        return False
 
-    # Step 2: Network Sniffing
-    print("🛡️ Sentinel is Sniffing for attacks... (Waiting for Metasploit)")
+def detect_attack(packet):
+    if packet.haslayer(TCP) and packet.haslayer(Raw):
+        payload = str(packet[Raw].load).lower()
+        # Look for Metasploit/Java-RMI exploit signatures
+        if "java" in payload or "rmi" in payload:
+            src_ip = packet[IP].src
+            msg = "EXPLOIT IN PROGRESS"
+            print(f"[!!!] {msg} from {src_ip} - Status: CRITICAL")
+            with open(CSV_DB, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), src_ip, "CRITICAL", "Suspicious Java RMI Payload Detected"])
+
+if __name__ == "__main__":
+    init_db()
+    check_java_vuln()
+    print("[*] Sniffing Phase: Waiting for Attack on port 1099...")
     sniff(filter=f"ip dst {TARGET_IP} and tcp port 1099", prn=detect_attack, store=0)
