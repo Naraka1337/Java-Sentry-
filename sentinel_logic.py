@@ -60,6 +60,6 @@ def detect_attack(packet):
 if __name__ == "__main__":
     init_db()
     check_java_vuln()
-    print("[*] Sniffing Phase: Waiting for Attack on port 1099... (Listening on ALL interfaces)")
-    # Using iface="any" and filtering in Python to bypass any OS pcap issues
-    sniff(prn=detect_attack, store=0, iface="any")
+    print("[*] Sniffing Phase: Waiting for Attack on port 1099... (Listening on default interface)")
+    # Removed iface="any" to avoid native socket ValueError. Scapy will use the default route interface (ens33).
+    sniff(prn=detect_attack, store=0)
