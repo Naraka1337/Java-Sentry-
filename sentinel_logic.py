@@ -38,10 +38,16 @@ def check_java_vuln():
         return False
 
 def detect_attack(packet):
+    # Debug: Print any packet reaching the script on port 1099
+    if packet.haslayer(IP):
+        print(f"[DEBUG] Intercepted Packet: {packet[IP].src} -> {packet[IP].dst}")
+        
     if packet.haslayer(TCP) and packet.haslayer(Raw):
-        payload = str(packet[Raw].load).lower()
-        # Look for Metasploit/Java-RMI exploit signatures
-        if "java" in payload or "rmi" in payload:
+        raw_data = packet[Raw].load
+        payload_str = str(raw_data).lower()
+        
+        # Look for Metasploit/Java-RMI exploit signatures or Java Magic Bytes (\xac\xed\x00\x05)
+        if b"\xac\xed" in raw_data or "java" in payload_str or "rmi" in payload_str:
             src_ip = packet[IP].src
             msg = "EXPLOIT IN PROGRESS"
             print(f"[!!!] {msg} from {src_ip} - Status: CRITICAL")
