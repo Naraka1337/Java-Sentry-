@@ -38,25 +38,28 @@ def check_java_vuln():
         return False
 
 def detect_attack(packet):
-    # Debug: Print any packet reaching the script on port 1099
-    if packet.haslayer(IP):
-        print(f"[DEBUG] Intercepted Packet: {packet[IP].src} -> {packet[IP].dst}")
-        
-    if packet.haslayer(TCP) and packet.haslayer(Raw):
-        raw_data = packet[Raw].load
-        payload_str = str(raw_data).lower()
-        
-        # Look for Metasploit/Java-RMI exploit signatures or Java Magic Bytes (\xac\xed\x00\x05)
-        if b"\xac\xed" in raw_data or "java" in payload_str or "rmi" in payload_str:
-            src_ip = packet[IP].src
-            msg = "EXPLOIT IN PROGRESS"
-            print(f"[!!!] {msg} from {src_ip} - Status: CRITICAL")
-            with open(CSV_DB, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), src_ip, "CRITICAL", "Suspicious Java RMI Payload Detected"])
+    # Only process TCP packets on port 1099
+    if packet.haslayer(IP) and packet.haslayer(TCP):
+        if packet[TCP].dport == 1099 or packet[TCP].sport == 1099:
+            # Debug: Print any packet to/from 1099
+            print(f"[DEBUG] Intercepted TCP Packet: {packet[IP].src}:{packet[TCP].sport} -> {packet[IP].dst}:{packet[TCP].dport}")
+            
+            if packet.haslayer(Raw):
+                raw_data = packet[Raw].load
+                payload_str = str(raw_data).lower()
+                
+                # Look for Metasploit/Java-RMI exploit signatures or Java Magic Bytes
+                if b"\xac\xed" in raw_data or "java" in payload_str or "rmi" in payload_str:
+                    src_ip = packet[IP].src
+                    msg = "EXPLOIT IN PROGRESS"
+                    print(f"[!!!] {msg} from {src_ip} - Status: CRITICAL")
+                    with open(CSV_DB, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), src_ip, "CRITICAL", "Suspicious Java RMI Payload Detected"])
 
 if __name__ == "__main__":
     init_db()
     check_java_vuln()
-    print("[*] Sniffing Phase: Waiting for Attack on port 1099...")
-    sniff(filter="tcp port 1099", prn=detect_attack, store=0)
+    print("[*] Sniffing Phase: Waiting for Attack on port 1099... (Listening on ALL interfaces)")
+    # Using iface="any" and filtering in Python to bypass any OS pcap issues
+    sniff(prn=detect_attack, store=0, iface="any")
