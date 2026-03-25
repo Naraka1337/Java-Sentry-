@@ -17,21 +17,21 @@ def check_java_vuln():
     print(f"[*] Scanning Phase: Checking {TARGET_IP}:1099 for Java RMI Vulnerability...")
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        s.connect((TARGET_IP, 1099))
-        banner = s.recv(1024)
-        s.close()
+        s.settimeout(3)
+        result = s.connect_ex((TARGET_IP, 1099))
         
-        # If open and responds, log the risk
-        msg = "VULNERABILITY DETECTED (CVE-2013-4040 / Java RMI)"
-        print(f"[!] {msg} - Status: RISK")
-        
-        with open(CSV_DB, "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "Scanner (Local)", "RISK", msg])
-        return True
+        if result == 0:
+            msg = "VULNERABILITY DETECTED (Java RMI Registry Open)"
+            print(f"[!] {msg} - Status: RISK")
+            with open(CSV_DB, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "Scanner (Local)", "RISK", msg])
+            s.close()
+            return True
+        else:
+            raise Exception("Port Closed")
     except Exception as e:
-        print(f"[-] Target is secured or offline. Status: SAFE")
+        print(f"[-] Target Port 1099 is Closed. Status: SAFE")
         with open(CSV_DB, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "Scanner (Local)", "SAFE", "No Vulnerability Detected"])
@@ -53,4 +53,4 @@ if __name__ == "__main__":
     init_db()
     check_java_vuln()
     print("[*] Sniffing Phase: Waiting for Attack on port 1099...")
-    sniff(filter="tcp port 1099", prn=detect_attack, store=0, iface="ens34")
+    sniff(filter="tcp port 1099", prn=detect_attack, store=0)
