@@ -5,13 +5,13 @@ import re
 from scapy.all import *
 import os
 
-TARGET_IP = "192.168.56.20"
+TARGET_IP = "192.168.56.20" # Change this to your Vulnerable server IP
 CSV_DB = "standalone_siem.csv"
 DEBUG_MODE = False
 ALERT_COOLDOWN = 10
 last_alert_time = {}
 
-# Common shell commands or tools used in payloads
+# Common shell commands or tools used in payloads (Alot more can be added)
 SUSPICIOUS_CMDS = [b"bash", b"sh", b"cmd.exe", b"powershell", b"wget", b"curl", b"nc ", b"netcat", b"python"]
 
 def init_db():
